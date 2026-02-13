@@ -1,0 +1,5 @@
+../Core/Src/bridge.c:11:6:bridge_init	4	static
+../Core/Src/bridge.c:18:6:bridge_set_rs422	16	static
+../Core/Src/bridge.c:19:6:bridge_set_eth	16	static
+../Core/Src/bridge.c:20:6:bridge_set_usb	16	static
+../Core/Src/bridge.c:22:6:bridge_forward	24	static

@@ -1,0 +1,7 @@
+../Core/Src/aio.c:12:6:aio_init	16	static
+../Core/Src/aio.c:19:7:aio_output_set	16	static
+../Core/Src/aio.c:25:7:aio_all_outputs_off	16	static
+../Core/Src/aio.c:31:11:aio_output_get	16	static
+../Core/Src/aio.c:41:10:aio_input_get	16	static
+../Core/Src/aio.c:50:9:aio_get_input_count	4	static
+../Core/Src/aio.c:60:9:aio_get_output_count	4	static

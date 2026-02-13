@@ -1,0 +1,9 @@
+../Core/Src/status_led.c:196:24:millis	8	static
+../Core/Src/status_led.c:198:20:led_write	16	static
+../Core/Src/status_led.c:206:13:get_current_main_pattern_state	24	static
+../Core/Src/status_led.c:233:13:update_leds	24	static
+../Core/Src/status_led.c:293:6:status_led_init	40	static
+../Core/Src/status_led.c:325:6:status_led_set_mode	16	static
+../Core/Src/status_led.c:333:19:status_led_get_mode	4	static
+../Core/Src/status_led.c:338:6:status_led_data_activity	8	static
+../Core/Src/status_led.c:364:6:status_led_task	8	static

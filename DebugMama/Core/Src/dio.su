@@ -1,0 +1,12 @@
+../Core/Src/dio.c:44:24:iobus_set_addr	16	static
+../Core/Src/dio.c:57:24:iobus_set_addr_idle	8	static
+../Core/Src/dio.c:64:17:iobus_write	32	static,ignoring_inline_asm
+../Core/Src/dio.c:116:20:iobus_read	24	static,ignoring_inline_asm
+../Core/Src/dio.c:148:6:dio_init	48	static
+../Core/Src/dio.c:214:6:dio_output_set	24	static
+../Core/Src/dio.c:245:6:dio_all_outputs_off	16	static
+../Core/Src/dio.c:252:6:dio_output_get	24	static
+../Core/Src/dio.c:276:6:dio_output_enable	16	static
+../Core/Src/dio.c:289:6:dio_input_get	24	static
+../Core/Src/dio.c:326:9:dio_get_input_count	4	static
+../Core/Src/dio.c:336:9:dio_get_output_count	4	static
