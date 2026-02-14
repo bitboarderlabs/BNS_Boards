@@ -6,11 +6,14 @@
 #define BUFFER_SIZE_KB 2
 #define BUFFER_MASK (BUFFER_SIZE_KB * 1024 - 1)
 
-#define DHCP_MSG_LEN 576
-static uint8_t dhcp_buffer[DHCP_MSG_LEN];
+#define DHCP_MSG_LEN  576
+#define DHCP_UDP_HDR  8     /* W5500 prepends [srcIP(4)][srcPort(2)][dataLen(2)] on UDP RX */
+static uint8_t dhcp_buffer[DHCP_UDP_HDR + DHCP_MSG_LEN];
 static uint8_t dhcp_xid[4] = {0x12, 0x34, 0x56, 0x78};
-static uint8_t dhcp_state = 0;
+static uint8_t dhcp_state = 0;       /* 0=idle, 1=DISCOVER sent, 2=REQUEST sent, 3=done */
 static uint32_t dhcp_tick = 0;
+static uint32_t dhcp_retry_tick = 0; /* timeout for retry */
+#define DHCP_RETRY_MS 4000
 
 static ip_mode_t ip_mode = IP_MODE_STATIC;
 static uint8_t static_ip[4]      = {192, 168, 1, 100};
@@ -117,21 +120,19 @@ void w5500_send(uint8_t socket, const uint8_t *data, uint16_t len) {
     w5500_socket_write_byte(socket, SN_CR, SN_CR_SEND);
     while (w5500_socket_read_byte(socket, SN_CR));
 
-    // Wait for SEND_OK or timeout
+    /* Wait for SEND_OK (Sn_IR bit 4 = 0x10) or TIMEOUT (bit 3 = 0x08) */
     uint32_t timeout = HAL_GetTick() + 5000;
     while (HAL_GetTick() < timeout) {
         uint8_t ir = w5500_socket_read_byte(socket, SN_IR);
-        if (ir & 0x08) {  // TIMEOUT
-            w5500_socket_write_byte(socket, SN_IR, 0x08);  // Clear
+        if (ir & 0x08) {  /* TIMEOUT */
+            w5500_socket_write_byte(socket, SN_IR, 0x08);
             break;
         }
-        if (ir & 0x04) {  // SEND_OK
-            w5500_socket_write_byte(socket, SN_IR, 0x04);
+        if (ir & 0x10) {  /* SEND_OK */
+            w5500_socket_write_byte(socket, SN_IR, 0x10);
             return;
         }
     }
-    // Timeout: Close socket
-    w5500_socket_write_byte(socket, SN_CR, SN_CR_CLOSE);
 }
 
 void w5500_udp_send(uint8_t socket, const uint8_t *data, uint16_t len,
@@ -164,86 +165,136 @@ void w5500_dhcp_init(void) {
 
     dhcp_state = 0;
     dhcp_tick = HAL_GetTick();
+    dhcp_retry_tick = dhcp_tick;
+}
+
+/* Build and send a DHCP DISCOVER or REQUEST packet.
+ * TX uses dhcp_buffer[0..] directly (no UDP header on send). */
+static void dhcp_send_discover(void) {
+    memset(dhcp_buffer, 0, DHCP_MSG_LEN);
+    dhcp_buffer[0]  = 0x01;        /* op:    BOOTREQUEST */
+    dhcp_buffer[1]  = 0x01;        /* htype: Ethernet   */
+    dhcp_buffer[2]  = 0x06;        /* hlen:  6          */
+    memcpy(&dhcp_buffer[4], dhcp_xid, 4);   /* xid   (offset 4)  */
+    dhcp_buffer[10] = 0x80;        /* flags: broadcast  */
+    w5500_get_mac(&dhcp_buffer[28]);        /* chaddr (offset 28) */
+
+    /* Magic cookie at offset 236, options at 240 */
+    dhcp_buffer[236] = 0x63; dhcp_buffer[237] = 0x82;
+    dhcp_buffer[238] = 0x53; dhcp_buffer[239] = 0x63;
+    uint8_t *opt = &dhcp_buffer[240];
+    opt[0] = 53; opt[1] = 1; opt[2] = 1;   /* DHCP Message Type = DISCOVER */
+    opt[3] = 0xFF;                          /* End */
+
+    uint8_t bcast[4] = {255, 255, 255, 255};
+    w5500_udp_send(W5500_DHCP_SOCKET, dhcp_buffer, 244, bcast, 67);
+}
+
+static void dhcp_send_request(const uint8_t *offered_ip, const uint8_t *server_ip) {
+    memset(dhcp_buffer, 0, DHCP_MSG_LEN);
+    dhcp_buffer[0]  = 0x01;
+    dhcp_buffer[1]  = 0x01;
+    dhcp_buffer[2]  = 0x06;
+    memcpy(&dhcp_buffer[4], dhcp_xid, 4);
+    dhcp_buffer[10] = 0x80;        /* flags: broadcast */
+    w5500_get_mac(&dhcp_buffer[28]);
+
+    dhcp_buffer[236] = 0x63; dhcp_buffer[237] = 0x82;
+    dhcp_buffer[238] = 0x53; dhcp_buffer[239] = 0x63;
+    uint8_t *opt = &dhcp_buffer[240];
+    opt[0] = 53; opt[1] = 1; opt[2] = 3;               /* DHCP Message Type = REQUEST */
+    opt[3] = 50; opt[4] = 4; memcpy(&opt[5], offered_ip, 4);  /* Requested IP */
+    opt[9] = 54; opt[10] = 4; memcpy(&opt[11], server_ip, 4); /* Server Identifier */
+    opt[15] = 0xFF;                                     /* End */
+
+    uint8_t bcast[4] = {255, 255, 255, 255};
+    w5500_udp_send(W5500_DHCP_SOCKET, dhcp_buffer, 256, bcast, 67);
 }
 
 bool w5500_dhcp_run(void) {
-    if (ip_mode != IP_MODE_DHCP || dhcp_state == 2) return dhcp_state == 2;
+    if (ip_mode != IP_MODE_DHCP || dhcp_state == 3) return dhcp_state == 3;
 
     uint32_t now = HAL_GetTick();
-    if (now - dhcp_tick < 100) return false;  // Poll every 100ms
+    if (now - dhcp_tick < 100) return false;  /* poll every 100 ms */
     dhcp_tick = now;
 
-    uint16_t len = w5500_get_rx_size(W5500_DHCP_SOCKET);
-    if (len > 0) {
-        w5500_read_data(W5500_DHCP_SOCKET, dhcp_buffer, len > DHCP_MSG_LEN ? DHCP_MSG_LEN : len);
-    } else if (dhcp_state == 0) {
-        // Send DISCOVER
-        memset(dhcp_buffer, 0, DHCP_MSG_LEN);
-        dhcp_buffer[0] = 0x01; dhcp_buffer[1] = 0x01; dhcp_buffer[2] = 0x06; dhcp_buffer[4] = 0x01;
-        memcpy(&dhcp_buffer[8], dhcp_xid, 4);
-        w5500_get_mac(&dhcp_buffer[28]);
-
-        uint8_t *opt = &dhcp_buffer[240];
-        opt[0] = 0x63; opt[1] = 0x82; opt[2] = 0x53; opt[3] = 0x63;
-        opt[4] = 0x35; opt[5] = 0x01; opt[6] = 0x01;
-        opt[7] = 0xFF;
-
-        uint8_t broadcast_ip[4] = {255, 255, 255, 255};
-        w5500_udp_send(W5500_DHCP_SOCKET, dhcp_buffer, 240 + 8, broadcast_ip, 67);
-        dhcp_state = 1;
-        return false;
-    } else {
-        return false;  // Retry logic if needed
+    /* Retry timeout — reopen socket and go back to DISCOVER */
+    if (dhcp_state != 0 && (now - dhcp_retry_tick) > DHCP_RETRY_MS) {
+        w5500_socket_write_byte(W5500_DHCP_SOCKET, SN_CR, SN_CR_CLOSE);
+        while (w5500_socket_read_byte(W5500_DHCP_SOCKET, SN_CR));
+        w5500_socket_write_byte(W5500_DHCP_SOCKET, SN_MR, SN_MR_UDP);
+        w5500_socket_write_byte(W5500_DHCP_SOCKET, SN_PORT, 0);
+        w5500_socket_write_byte(W5500_DHCP_SOCKET, SN_PORT + 1, 68);
+        w5500_socket_write_byte(W5500_DHCP_SOCKET, SN_CR, SN_CR_OPEN);
+        while (w5500_socket_read_byte(W5500_DHCP_SOCKET, SN_CR));
+        dhcp_state = 0;
     }
 
-    // Parse OFFER/ACK
-    if (len < 240 || dhcp_buffer[0] != 0x02) return false;
+    /* Check for incoming data */
+    uint16_t raw_len = w5500_get_rx_size(W5500_DHCP_SOCKET);
 
-    uint8_t *options = &dhcp_buffer[240];
-    uint8_t msg_type = 0;
-    for (int i = 0; i < len - 240; ) {
-        uint8_t opt = options[i];
-        if (opt == 0xFF) break;
-        uint8_t optlen = options[i + 1];
-        if (opt == 0x35 && optlen == 1) msg_type = options[i + 2];
-        i += 2 + optlen;
-    }
-
-    if (msg_type == 2) {  // OFFER
-        // Send REQUEST
-        dhcp_state = 1;
-        memset(dhcp_buffer, 0, DHCP_MSG_LEN);
-        dhcp_buffer[0] = 0x01; dhcp_buffer[1] = 0x01; dhcp_buffer[2] = 0x06; dhcp_buffer[4] = 0x01;
-        memcpy(&dhcp_buffer[8], dhcp_xid, 4);
-        w5500_get_mac(&dhcp_buffer[28]);
-
-        uint8_t *opt = &dhcp_buffer[240];
-        opt[0] = 0x63; opt[1] = 0x82; opt[2] = 0x53; opt[3] = 0x63;
-        opt[4] = 0x35; opt[5] = 0x01; opt[6] = 0x03;
-        opt[7] = 0x32; opt[8] = 0x04; memcpy(&opt[9], &dhcp_buffer[16], 4);  // Requested IP from OFFER
-        opt[13] = 0xFF;
-
-        uint8_t broadcast_ip[4] = {255, 255, 255, 255};
-        w5500_udp_send(W5500_DHCP_SOCKET, dhcp_buffer, 240 + 14, broadcast_ip, 67);
-    } else if (msg_type == 5) {  // ACK
-        uint8_t *yiaddr = &dhcp_buffer[16];
-        w5500_common_write(SIPR, yiaddr, 4);
-
-        uint8_t subnet[4] = {255, 255, 255, 0};
-        uint8_t gateway[4] = {0};
-        uint8_t *options = &dhcp_buffer[240];
-        for (int i = 0; i < len - 240; ) {
-            uint8_t opt = options[i];
-            if (opt == 0xFF) break;
-            uint8_t optlen = options[i + 1];
-            if (opt == 1 && optlen == 4) memcpy(subnet, &options[i + 2], 4);
-            if (opt == 3 && optlen == 4) memcpy(gateway, &options[i + 2], 4);
-            i += 2 + optlen;
+    if (raw_len == 0) {
+        if (dhcp_state == 0) {
+            dhcp_send_discover();
+            dhcp_state = 1;
+            dhcp_retry_tick = now;
         }
+        return false;
+    }
+
+    /* Read raw UDP data (includes 8-byte W5500 packet-info header) */
+    uint16_t buf_max = sizeof(dhcp_buffer);
+    if (raw_len > buf_max) raw_len = buf_max;
+    w5500_read_data(W5500_DHCP_SOCKET, dhcp_buffer, raw_len);
+
+    /* Skip W5500 UDP header — actual DHCP message starts at offset 8 */
+    if (raw_len <= DHCP_UDP_HDR + 240) return false;
+    uint8_t *msg = &dhcp_buffer[DHCP_UDP_HDR];
+    uint16_t msg_len = raw_len - DHCP_UDP_HDR;
+
+    /* Validate: must be BOOTREPLY with matching XID */
+    if (msg[0] != 0x02) return false;
+    if (memcmp(&msg[4], dhcp_xid, 4) != 0) return false;
+
+    /* Parse DHCP options (magic cookie at msg[236], options at msg[240]) */
+    if (msg_len < 244) return false;
+    if (msg[236] != 0x63 || msg[237] != 0x82 ||
+        msg[238] != 0x53 || msg[239] != 0x63) return false;
+
+    uint8_t *options = &msg[240];
+    uint16_t opt_len = msg_len - 240;
+    uint8_t msg_type = 0;
+    uint8_t server_id[4] = {0};
+    uint8_t subnet[4] = {255, 255, 255, 0};
+    uint8_t gateway[4] = {0};
+
+    for (uint16_t i = 0; i < opt_len; ) {
+        uint8_t code = options[i];
+        if (code == 0xFF) break;          /* End */
+        if (code == 0x00) { i++; continue; }  /* Pad */
+        if (i + 1 >= opt_len) break;
+        uint8_t olen = options[i + 1];
+        if (i + 2 + olen > opt_len) break;
+        if (code == 53 && olen == 1) msg_type = options[i + 2];
+        if (code == 54 && olen == 4) memcpy(server_id, &options[i + 2], 4);
+        if (code == 1  && olen == 4) memcpy(subnet,    &options[i + 2], 4);
+        if (code == 3  && olen == 4) memcpy(gateway,   &options[i + 2], 4);
+        i += 2 + olen;
+    }
+
+    if (msg_type == 2 && dhcp_state == 1) {
+        /* OFFER — save offered IP and send REQUEST */
+        uint8_t offered_ip[4];
+        memcpy(offered_ip, &msg[16], 4);   /* yiaddr */
+        dhcp_send_request(offered_ip, server_id);
+        dhcp_state = 2;
+        dhcp_retry_tick = now;
+    } else if (msg_type == 5 && dhcp_state == 2) {
+        /* ACK — apply network config */
+        w5500_common_write(SIPR, &msg[16], 4);
         w5500_common_write(SUBR, subnet, 4);
         w5500_common_write(GAR, gateway, 4);
-
-        dhcp_state = 2;
+        dhcp_state = 3;
         return true;
     }
     return false;

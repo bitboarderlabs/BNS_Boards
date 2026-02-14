@@ -18,7 +18,7 @@
 #define HTTP_URI_SIZE       64
 #define HTTP_QUERY_SIZE     64
 #define HTTP_HEADER_SIZE   256
-#define JSON_BUF_SIZE     2048
+#define JSON_BUF_SIZE     4096
 #define HTTP_TIMEOUT_MS   5000
 #define HTTP_SEND_CHUNK   1400  /* stay under MTU */
 
@@ -486,6 +486,7 @@ static void http_handle_config_get(http_conn_t *c)
         "\"mqtt_broker_host\":\"%s\","
         "\"mqtt_broker_port\":%u,"
         "\"mqtt_username\":\"%s\","
+        "\"mqtt_password\":\"%s\","
         "\"mqtt_root_topic\":\"%s\","
         "\"mqtt_append_node_id\":%s,"
         "\"mqtt_client_id_prefix\":\"%s\","
@@ -503,6 +504,7 @@ static void http_handle_config_get(http_conn_t *c)
         cfg->mqtt_broker_host,
         cfg->mqtt_broker_port,
         cfg->mqtt_username,
+        cfg->mqtt_password,
         cfg->mqtt_root_topic,
         cfg->mqtt_append_node_id ? "true" : "false",
         cfg->mqtt_client_id_prefix,
@@ -510,14 +512,15 @@ static void http_handle_config_get(http_conn_t *c)
         (unsigned long)cfg->mqtt_reconnect_ms,
         cfg->mqtt_analog_interval_s);
 
-    /* I/O config array */
+    /* I/O config array — include ALL entries so UI can edit empty ones */
     pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos, "\"io\":[");
     for (uint8_t i = 0; i < CONFIG_IO_MAX; i++) {
         io_config_entry_t *io = &cfg->io[i];
-        if (io->name[0] == '\0') continue;
+        if (i > 0) {
+            pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos, ",");
+        }
         pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos,
-            "%s{\"i\":%d,\"n\":\"%s\",\"on\":\"%s\",\"off\":\"%s\",\"str\":%s}",
-            (pos > 0 && json_buf[pos-1] != '[') ? "," : "",
+            "{\"i\":%d,\"n\":\"%s\",\"on\":\"%s\",\"off\":\"%s\",\"str\":%s}",
             i, io->name, io->mqtt_on_value, io->mqtt_off_value,
             io->mqtt_value_is_string ? "true" : "false");
     }
@@ -608,9 +611,27 @@ static void http_handle_config_post(http_conn_t *c)
     if (json_find_int(body, "mqtt_reconnect_ms", &int_val)) cfg->mqtt_reconnect_ms = int_val;
     if (json_find_int(body, "mqtt_analog_interval_s", &int_val)) cfg->mqtt_analog_interval_s = int_val;
 
-    /* Note: I/O config array parsing is done separately via individual /io endpoint
-       or included inline — for now we handle it in a simplified manner.
-       Full I/O array parsing can be added as needed. */
+    /* Parse I/O config array: look for each entry by index */
+    for (uint8_t i = 0; i < CONFIG_IO_MAX; i++) {
+        io_config_entry_t *io = &cfg->io[i];
+        char key[16];
+        char val[16];
+
+        snprintf(key, sizeof(key), "io_%d_n", i);
+        if (json_find_string(body, key, val, sizeof(val)))
+            strncpy(io->name, val, sizeof(io->name) - 1);
+
+        snprintf(key, sizeof(key), "io_%d_on", i);
+        if (json_find_string(body, key, val, sizeof(val)))
+            strncpy(io->mqtt_on_value, val, sizeof(io->mqtt_on_value) - 1);
+
+        snprintf(key, sizeof(key), "io_%d_off", i);
+        if (json_find_string(body, key, val, sizeof(val)))
+            strncpy(io->mqtt_off_value, val, sizeof(io->mqtt_off_value) - 1);
+
+        snprintf(key, sizeof(key), "io_%d_str", i);
+        json_find_bool(body, key, &io->mqtt_value_is_string);
+    }
 
     config_mark_dirty();
 

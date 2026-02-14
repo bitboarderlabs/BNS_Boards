@@ -106,8 +106,7 @@ void comm_init(uint8_t node_id) {
 
     bridge_init();
 
-    // USER CONFIG: DHCP or STATIC
-    w5500_set_ip_mode(0); //0=Static IP, 1=DHCP.  To change during runtime, call w5500_set_ip_mode(IP_MODE_STATIC);
+    // IP mode already set by main via w5500_set_ip_mode() before comm_init()
 	w5500_init();
 
     // RS422 init

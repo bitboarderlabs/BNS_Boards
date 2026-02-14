@@ -77,6 +77,15 @@ static void lcd_print_at(uint16_t x, uint16_t y, const char *str)
 /* ---------- Init ---------- */
 void lcd_init(void)
 {
+    /* PA3 is configured as TIM5_CH4 alternate function by CubeMX.
+     * Reconfigure as plain GPIO output so backlight on/off works. */
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin   = nLCD_BL_Pin;
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull  = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(nLCD_BL_GPIO_Port, &gpio);
+
     user_config_data_t *cfg = config_get();
     if (!cfg->lcd_enabled) {
         lcd_active = false;
@@ -94,7 +103,8 @@ void lcd_init(void)
                 LCD_OPTIONS,
                 true);              /* finishInit = true */
 
-    ST7735_Start(&lcd_dev, 100);   /* 100 ms pre-delay after reset */
+    /* SetRotation must be called AFTER Init/Start (which resets rotation to 0) */
+    ST7735_SetRotation(&lcd_dev, LCD_ROTATION);
 
     ST7735_FillScreen(&lcd_dev, COL_BG);
     lcd_backlight_on();

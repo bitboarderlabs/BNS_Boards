@@ -258,7 +258,9 @@ int newMain(void){
 	  user_config_data_t *cfg = config_get();
 
 	  /* Apply config-driven network settings before comm init */
-	  w5500_set_ip_mode(cfg->ip_mode ? IP_MODE_DHCP : IP_MODE_STATIC);
+	  // TODO: remove forced DHCP override after debugging
+	  w5500_set_ip_mode(IP_MODE_DHCP);
+	  //w5500_set_ip_mode(cfg->ip_mode ? IP_MODE_DHCP : IP_MODE_STATIC);
 	  w5500_set_network_config(cfg->static_ip, cfg->gateway, cfg->subnet);
 
 	  comm_init(node_id);
@@ -282,7 +284,7 @@ int newMain(void){
 
 	  char buf[64];
 	  snprintf(buf, sizeof(buf), "Startup. Node ID: %d", node_id);
-	  //debug_println(buf);
+	  debug_println(buf);
 
 	  // Check stack margin
 	  extern uint8_t _estack;
@@ -300,10 +302,15 @@ int newMain(void){
 	  snprintf(buf, sizeof(buf), "Stack margin: %lu bytes", margin);
 	  debug_println(buf);
 
+	  snprintf(buf, sizeof(buf), "Board: %s  IP mode: %s",
+	      board == BOARD_TYPE_MAMA ? "MAMA" : "BABY",
+	      cfg->ip_mode ? "DHCP" : "STATIC");
+	  debug_println(buf);
+
+	  bool ip_printed = false;
+
 	  while (1)
 	    {
-
-
 
 	  	  comm_task();
 	  	  app_task();
@@ -314,7 +321,16 @@ int newMain(void){
 	  	  lcd_task();
 #endif
 
-
+	  	  /* Print IP address once it's available */
+	  	  if (!ip_printed) {
+	  	      uint8_t ip[4];
+	  	      w5500_get_ip(ip);
+	  	      if (ip[0] != 0 || ip[1] != 0 || ip[2] != 0 || ip[3] != 0) {
+	  	          snprintf(buf, sizeof(buf), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+	  	          debug_println(buf);
+	  	          ip_printed = true;
+	  	      }
+	  	  }
 
 	    }
 }
@@ -373,18 +389,116 @@ int main(void)
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
-  /* USER CODE END 2 */
+	  dio_output_enable(false);
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
+	  board    = board_get_type();
+	  node_id  = node_id_get();
 
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+	  dio_init(board);
+
+	  dio_all_outputs_off();
+	  dio_output_enable(true);          // safe for Baby, required for Mama
+
+	  aio_init(board);
+
+	  status_led_init(board);
+	  status_led_set_mode(LED_MODE_BOOTING);
+
+	  /* Load user configuration from flash (or defaults) */
+	  config_init(board);
+	  user_config_data_t *cfg = config_get();
+
+	  /* Apply config-driven network settings before comm init */
+	  // TODO: remove forced DHCP override after debugging
+	  w5500_set_ip_mode(IP_MODE_DHCP);
+	  //w5500_set_ip_mode(cfg->ip_mode ? IP_MODE_DHCP : IP_MODE_STATIC);
+	  w5500_set_network_config(cfg->static_ip, cfg->gateway, cfg->subnet);
+
+	  comm_init(node_id);
+	  app_init();
+
+	  /* Initialize web server (opens HTTP sockets 2-3) */
+	  webserver_init();
+
+	  /* Initialize Modbus TCP server (socket 4, port 502) */
+	  modbus_tcp_init();
+
+	  /* Initialize MQTT client (socket 5, port 1883) */
+	  mqtt_client_init();
+
+#if defined(BOARD_MAMA)
+	  /* Initialize LCD display if enabled */
+	  lcd_init();
+#endif
+
+	  //status_led_set(STATUS_APP_RUNNING);
+
+	  char buf[64];
+	  snprintf(buf, sizeof(buf), "Startup. Node ID: %d", node_id);
+	  debug_println(buf);
+
+	  // Check stack margin
+	  extern uint8_t _estack;
+	  uint32_t sp = __get_MSP();
+	  uint32_t top = (uint32_t)&_estack;
+	  uint32_t margin = top - sp;
+
+
+	  snprintf(buf, sizeof(buf), "Stack top: 0x%08lX", top);
+	  debug_println(buf);
+
+	  snprintf(buf, sizeof(buf), "Current SP: 0x%08lX", sp);
+	  debug_println(buf);
+
+	  snprintf(buf, sizeof(buf), "Stack margin: %lu bytes", margin);
+	  debug_println(buf);
+
+	  snprintf(buf, sizeof(buf), "Board: %s  IP mode: %s",
+	      board == BOARD_TYPE_MAMA ? "MAMA" : "BABY",
+	      cfg->ip_mode ? "DHCP" : "STATIC");
+	  debug_println(buf);
+
+	  bool ip_printed = false;
+
+	  while (1)
+	    {
+
+	  	  comm_task();
+	  	  app_task();
+	  	  webserver_task();
+	  	  modbus_tcp_task();
+	  	  mqtt_client_task();
+#if defined(BOARD_MAMA)
+	  	  lcd_task();
+#endif
+
+	  	  /* Print IP address once it's available */
+	  	  if (!ip_printed) {
+	  	      uint8_t ip[4];
+	  	      w5500_get_ip(ip);
+	  	      if (ip[0] != 0 || ip[1] != 0 || ip[2] != 0 || ip[3] != 0) {
+	  	          snprintf(buf, sizeof(buf), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+	  	          debug_println(buf);
+	  	          ip_printed = true;
+	  	      }
+	  	  }
+
+	    }
 }
+
+
+
+
+
+
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+
 
 /**
   * @brief System Clock Configuration
@@ -627,7 +741,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
