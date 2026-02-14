@@ -676,15 +676,70 @@ static void http_handle_info_json(http_conn_t *c)
     http_serve_json(c, json_buf, len);
 }
 
+static void http_handle_app_mqtt_get(http_conn_t *c, uint8_t slot)
+{
+    int pos = 0;
+    pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos, "{\"entries\":[");
+    for (uint8_t e = 0; e < MQTT_TABLE_ENTRIES; e++) {
+        mqtt_app_entry_t *entry = &apps[slot].mqtt_table[e];
+        pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos,
+            "%s{\"i\":%d,\"t\":\"%s\",\"p\":\"%s\"}",
+            e ? "," : "", e, entry->topic, entry->payload);
+    }
+    pos += snprintf(json_buf + pos, JSON_BUF_SIZE - pos, "]}");
+    http_serve_json(c, json_buf, pos);
+}
+
+static void http_handle_app_mqtt_post(http_conn_t *c, uint8_t slot)
+{
+    const char *body = (const char *)&c->rx_buf[c->body_offset];
+
+    /* Parse entries from JSON body.
+     * Expected: {"entries":[{"i":0,"t":"topic","p":"payload"}, ...]} */
+    const char *p = body;
+    while ((p = strstr(p, "{\"i\":")) != NULL) {
+        int idx = -1;
+        char topic[64] = {0};
+        char payload[32] = {0};
+
+        /* Parse index */
+        const char *ip = p + 5; /* skip {"i": */
+        idx = atoi(ip);
+
+        /* Parse topic */
+        json_find_string(p, "t", topic, sizeof(topic));
+
+        /* Parse payload */
+        json_find_string(p, "p", payload, sizeof(payload));
+
+        if (idx >= 0 && idx < MQTT_TABLE_ENTRIES) {
+            strncpy(apps[slot].mqtt_table[idx].topic, topic, sizeof(apps[slot].mqtt_table[idx].topic) - 1);
+            apps[slot].mqtt_table[idx].topic[sizeof(apps[slot].mqtt_table[idx].topic) - 1] = '\0';
+            strncpy(apps[slot].mqtt_table[idx].payload, payload, sizeof(apps[slot].mqtt_table[idx].payload) - 1);
+            apps[slot].mqtt_table[idx].payload[sizeof(apps[slot].mqtt_table[idx].payload) - 1] = '\0';
+        }
+
+        p++; /* advance past current match */
+    }
+
+    app_save_to_flash();
+    http_serve_json_ok(c, true);
+}
+
 static void http_handle_app_control(http_conn_t *c)
 {
-    /* Parse /app/N/start or /app/N/stop */
+    /* Parse /app/N/... */
     if (strlen(c->uri) < 7) { http_serve_404(c); return; }
 
     uint8_t slot = c->uri[5] - '0';
     if (slot >= NUM_APPS) { http_serve_json_ok(c, false); return; }
 
-    if (strstr(c->uri, "/start")) {
+    if (strstr(c->uri, "/mqtt")) {
+        if (c->method == HTTP_POST)
+            http_handle_app_mqtt_post(c, slot);
+        else
+            http_handle_app_mqtt_get(c, slot);
+    } else if (strstr(c->uri, "/start")) {
         app_start(slot);
         http_serve_json_ok(c, true);
     } else if (strstr(c->uri, "/stop")) {

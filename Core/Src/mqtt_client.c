@@ -12,6 +12,7 @@
 #include "dio.h"
 #include "aio.h"
 #include "node_id.h"
+#include "app.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,9 +73,17 @@ typedef struct {
     uint32_t     pub_deadline;
     /* Dynamic source port */
     uint16_t     src_port;
+    /* App MQTT topic subscription tracking */
+    bool         app_subs_phase;
+    uint8_t      app_sub_app;
+    uint8_t      app_sub_entry;
 } mqtt_ctx_t;
 
 static mqtt_ctx_t ctx;
+
+/* Received value cache for app MQTT_WAIT commands (RAM only) */
+static char  app_rx_values[NUM_APPS][MQTT_TABLE_ENTRIES][32];
+static bool  app_rx_valid[NUM_APPS][MQTT_TABLE_ENTRIES];
 
 /* ================================================================
  *  Helpers
@@ -301,6 +310,21 @@ static uint16_t send_publish(const char *name, uint16_t nlen,
     return pid;
 }
 
+/* Publish with QoS 0, no retain, no packet ID.  For app commands. */
+static void send_publish_qos0(const char *topic, uint16_t tlen,
+                               const char *payload, uint16_t plen)
+{
+    uint8_t buf[TX_BUF_SIZE];
+    uint16_t rem = 2 + tlen + plen;
+    uint16_t p = 0;
+    buf[p++] = PKT_PUBLISH; /* QoS 0, no retain */
+    p += encode_remaining(buf + p, rem);
+    put_u16(buf + p, tlen); p += 2;
+    memcpy(buf + p, topic, tlen); p += tlen;
+    memcpy(buf + p, payload, plen); p += plen;
+    w5500_send(MQTT_SOCKET, buf, p);
+}
+
 static void send_puback(uint16_t pid)
 {
     uint8_t buf[4] = { PKT_PUBACK, 0x02, pid >> 8, pid & 0xFF };
@@ -361,24 +385,79 @@ static void advance_sub_index(void)
     }
 }
 
+/* Check if topic was already subscribed (in current app scan progress) */
+static bool app_topic_already_subbed(const char *topic, uint8_t end_app, uint8_t end_entry)
+{
+    for (uint8_t a = 0; a < NUM_APPS; a++) {
+        for (uint8_t e = 0; e < MQTT_TABLE_ENTRIES; e++) {
+            if (a == end_app && e == end_entry) return false;
+            if (apps[a].mqtt_table[e].topic[0] == '\0') continue;
+            if (strcmp(apps[a].mqtt_table[e].topic, topic) == 0) return true;
+        }
+    }
+    return false;
+}
+
+/* Advance app sub scan to next non-empty, non-duplicate topic.
+ * Returns true if a topic was found. */
+static bool advance_app_sub(void)
+{
+    while (ctx.app_sub_app < NUM_APPS) {
+        while (ctx.app_sub_entry < MQTT_TABLE_ENTRIES) {
+            mqtt_app_entry_t *e = &apps[ctx.app_sub_app].mqtt_table[ctx.app_sub_entry];
+            if (e->topic[0] != '\0' &&
+                !app_topic_already_subbed(e->topic, ctx.app_sub_app, ctx.app_sub_entry))
+                return true;
+            ctx.app_sub_entry++;
+        }
+        ctx.app_sub_app++;
+        ctx.app_sub_entry = 0;
+    }
+    return false;
+}
+
+static void enter_connected(void)
+{
+    ctx.state = MQTT_CONNECTED;
+    ctx.last_din  = 0xFFFF;
+    ctx.last_dout = 0xFFFF;
+    for (uint8_t i = 0; i < AIO_INPUT_COUNT_MAX;  i++) ctx.last_ain[i]  = 0xFFFF;
+    for (uint8_t i = 0; i < AIO_OUTPUT_COUNT_MAX; i++) ctx.last_aout[i] = 0xFFFF;
+    ctx.last_dio_poll = 0;
+    ctx.last_ain_pub  = HAL_GetTick();
+    /* Clear app received value cache */
+    memset(app_rx_valid, 0, sizeof(app_rx_valid));
+}
+
 static void subscribe_next(void)
 {
-    advance_sub_index();
-    if (ctx.sub_index >= ctx.sub_count) {
-        /* All subscriptions done — enter CONNECTED */
-        ctx.state = MQTT_CONNECTED;
-        ctx.last_din  = 0xFFFF;
-        ctx.last_dout = 0xFFFF;
-        for (uint8_t i = 0; i < AIO_INPUT_COUNT_MAX;  i++) ctx.last_ain[i]  = 0xFFFF;
-        for (uint8_t i = 0; i < AIO_OUTPUT_COUNT_MAX; i++) ctx.last_aout[i] = 0xFFFF;
-        ctx.last_dio_poll = 0;
-        ctx.last_ain_pub  = HAL_GetTick();
+    /* Phase 1: I/O topics */
+    if (!ctx.app_subs_phase) {
+        advance_sub_index();
+        if (ctx.sub_index < ctx.sub_count) {
+            char topic[TOPIC_BUF_SIZE];
+            uint16_t tlen = build_sub_topic(ctx.sub_index, topic, sizeof(topic));
+            send_subscribe(topic, tlen);
+            ctx.deadline = HAL_GetTick() + CONNECT_TIMEOUT_MS;
+            return;
+        }
+        /* I/O subs done — start app topic phase */
+        ctx.app_subs_phase = true;
+        ctx.app_sub_app = 0;
+        ctx.app_sub_entry = 0;
+    }
+
+    /* Phase 2: App MQTT table topics */
+    if (advance_app_sub()) {
+        mqtt_app_entry_t *e = &apps[ctx.app_sub_app].mqtt_table[ctx.app_sub_entry];
+        send_subscribe(e->topic, strlen(e->topic));
+        ctx.app_sub_entry++; /* advance past this one for next call */
+        ctx.deadline = HAL_GetTick() + CONNECT_TIMEOUT_MS;
         return;
     }
-    char topic[TOPIC_BUF_SIZE];
-    uint16_t tlen = build_sub_topic(ctx.sub_index, topic, sizeof(topic));
-    send_subscribe(topic, tlen);
-    ctx.deadline = HAL_GetTick() + CONNECT_TIMEOUT_MS;
+
+    /* All subscriptions done */
+    enter_connected();
 }
 
 /* ================================================================
@@ -460,6 +539,21 @@ static void handle_incoming_publish(const uint8_t *pkt, uint16_t pkt_len)
             return;
         }
     }
+
+    /* Search app MQTT tables (match against full topic, not prefix-stripped) */
+    for (uint8_t a = 0; a < NUM_APPS; a++) {
+        for (uint8_t e = 0; e < MQTT_TABLE_ENTRIES; e++) {
+            mqtt_app_entry_t *entry = &apps[a].mqtt_table[e];
+            if (entry->topic[0] == '\0') continue;
+            if (tlen == strlen(entry->topic) &&
+                memcmp(topic, entry->topic, tlen) == 0) {
+                uint16_t cl = plen < 31 ? plen : 31;
+                memcpy(app_rx_values[a][e], payload, cl);
+                app_rx_values[a][e][cl] = '\0';
+                app_rx_valid[a][e] = true;
+            }
+        }
+    }
 }
 
 /* ================================================================
@@ -484,6 +578,7 @@ static void process_rx(void)
                     ctx.sub_count = dio_get_output_count()
                                   + aio_get_output_count()
                                   + aio_get_input_count();
+                    ctx.app_subs_phase = false;
                     ctx.last_ping_tx = HAL_GetTick();
                     ctx.last_pkt_rx  = HAL_GetTick();
                     ctx.state = MQTT_SUBSCRIBING;
@@ -787,4 +882,28 @@ void mqtt_client_task(void)
 bool mqtt_client_is_connected(void)
 {
     return ctx.state == MQTT_CONNECTED;
+}
+
+bool mqtt_client_app_publish(const char *topic, const char *payload)
+{
+    if (ctx.state != MQTT_CONNECTED) return false;
+    if (!topic || topic[0] == '\0') return false;
+    send_publish_qos0(topic, strlen(topic), payload, strlen(payload));
+    return true;
+}
+
+bool mqtt_client_app_get_received(uint8_t app_idx, uint8_t entry_idx,
+                                  char *buf, uint16_t buflen)
+{
+    if (app_idx >= NUM_APPS || entry_idx >= MQTT_TABLE_ENTRIES) return false;
+    if (!app_rx_valid[app_idx][entry_idx]) return false;
+    strncpy(buf, app_rx_values[app_idx][entry_idx], buflen - 1);
+    buf[buflen - 1] = '\0';
+    return true;
+}
+
+void mqtt_client_app_clear_received(uint8_t app_idx, uint8_t entry_idx)
+{
+    if (app_idx >= NUM_APPS || entry_idx >= MQTT_TABLE_ENTRIES) return;
+    app_rx_valid[app_idx][entry_idx] = false;
 }

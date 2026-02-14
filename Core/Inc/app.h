@@ -7,6 +7,12 @@
 #define MAX_LINES 100
 #define NUM_APPS 4
 #define APP_VERSION_LEN 10
+#define MQTT_TABLE_ENTRIES 8
+
+typedef struct {
+    char topic[64];     /* MQTT topic (absolute path) */
+    char payload[32];   /* PUBLISH: value to send; WAIT: value to match */
+} mqtt_app_entry_t;
 
 typedef enum {
     APP_CMD_ACTIVATE_OUTPUT = 0x01,
@@ -20,6 +26,8 @@ typedef enum {
     APP_CMD_SEND_MSG = 0x09,
     APP_CMD_TEST_FOR_MSG = 0x12,
     APP_CMD_ALL_OUTPUTS_OFF = 0x13,
+    APP_CMD_MQTT_PUBLISH = 0x14,
+    APP_CMD_MQTT_WAIT = 0x15,
 } app_command_t;
 
 typedef struct {
@@ -42,6 +50,7 @@ typedef struct {
     uint16_t incoming_msg;
     uint16_t outgoing_msg;
     bool has_msg;
+    mqtt_app_entry_t mqtt_table[MQTT_TABLE_ENTRIES];
 } app_t;
 
 extern app_t apps[NUM_APPS];

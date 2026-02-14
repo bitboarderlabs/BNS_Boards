@@ -1,6 +1,7 @@
 /* New file: Core/Src/app.c */
 #include "app.h"
 #include "dio.h"
+#include "mqtt_client.h"
 #include "packet.h"
 #include "status_led.h"
 #include "stm32f4xx_hal_flash.h"
@@ -54,6 +55,13 @@ static bool app_validate(app_t *app, uint8_t max_in, uint8_t max_out) {
                 break;
             case APP_CMD_ALL_OUTPUTS_OFF:
                 // No parameters to validate
+                break;
+            case APP_CMD_MQTT_PUBLISH:
+                if (line->param1 >= MQTT_TABLE_ENTRIES) return false;
+                break;
+            case APP_CMD_MQTT_WAIT:
+                if (line->param1 >= MQTT_TABLE_ENTRIES) return false;
+                if (line->goto_true >= app->num_lines || line->goto_false >= app->num_lines) return false;
                 break;
             default:
                 return false;  // Unknown command
@@ -148,6 +156,29 @@ void app_task(void) {
                 //for (uint8_t i = 0; i < max_out; i++) dio_output_set(i, false);
             	dio_all_outputs_off();
                 app->current_line++;
+                break;
+            case APP_CMD_MQTT_PUBLISH:
+                if (line->param1 < MQTT_TABLE_ENTRIES) {
+                    mqtt_app_entry_t *e = &app->mqtt_table[line->param1];
+                    if (e->topic[0] != '\0')
+                        mqtt_client_app_publish(e->topic, e->payload);
+                }
+                app->current_line++;
+                break;
+            case APP_CMD_MQTT_WAIT:
+                if (line->param1 >= MQTT_TABLE_ENTRIES) { app->current_line++; break; }
+                {
+                    mqtt_app_entry_t *e = &app->mqtt_table[line->param1];
+                    if (e->topic[0] == '\0' || !mqtt_client_is_connected()) break; /* block */
+                    char rxbuf[32];
+                    if (!mqtt_client_app_get_received(a, line->param1, rxbuf, sizeof(rxbuf)))
+                        break; /* block — no message yet */
+                    mqtt_client_app_clear_received(a, line->param1);
+                    if (strcmp(rxbuf, e->payload) == 0)
+                        app->current_line = line->goto_true;
+                    else
+                        app->current_line = line->goto_false;
+                }
                 break;
             default:
                 app->current_line++;
