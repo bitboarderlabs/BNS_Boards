@@ -32,6 +32,7 @@
 #include "app.h"
 #include "user_config.h"
 #include "webserver.h"
+#include "modbus_tcp.h"
 #if defined(BOARD_MAMA)
 #include "lcd_display.h"
 #endif
@@ -265,6 +266,9 @@ int newMain(void){
 	  /* Initialize web server (opens HTTP sockets 2-3) */
 	  webserver_init();
 
+	  /* Initialize Modbus TCP server (socket 4, port 502) */
+	  modbus_tcp_init();
+
 #if defined(BOARD_MAMA)
 	  /* Initialize LCD display if enabled */
 	  lcd_init();
@@ -300,6 +304,7 @@ int newMain(void){
 	  	  comm_task();
 	  	  app_task();
 	  	  webserver_task();
+	  	  modbus_tcp_task();
 #if defined(BOARD_MAMA)
 	  	  lcd_task();
 #endif
