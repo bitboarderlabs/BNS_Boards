@@ -1,7 +1,0 @@
-../Core/Src/packet.c:37:6:packet_init	24	static
-../Core/Src/packet.c:49:20:stuff_byte	16	static
-../Core/Src/packet.c:58:6:packet_sendNew	560	static
-../Core/Src/packet.c:93:6:packet_send_ack	24	static
-../Core/Src/packet.c:99:6:packet_send_nak	24	static
-../Core/Src/packet.c:106:17:unstuff	24	static
-../Core/Src/packet.c:120:6:packet_feed_byte	112	static

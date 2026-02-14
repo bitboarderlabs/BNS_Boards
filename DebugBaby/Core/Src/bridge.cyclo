@@ -1,5 +1,0 @@
-../Core/Src/bridge.c:11:6:bridge_init	1
-../Core/Src/bridge.c:18:6:bridge_set_rs422	1
-../Core/Src/bridge.c:19:6:bridge_set_eth	1
-../Core/Src/bridge.c:20:6:bridge_set_usb	1
-../Core/Src/bridge.c:22:6:bridge_forward	6

@@ -1,0 +1,18 @@
+# Build artifacts
+*.o
+*.d
+*.su
+*.cyclo
+*.elf
+*.map
+*.list
+!objects.list
+*.hex
+*.bin
+*.srec
+
+# Build output directories
+Debug/
+
+# IDE local settings
+.settings/
