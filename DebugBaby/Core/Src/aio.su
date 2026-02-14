@@ -4,4 +4,4 @@
 ../Core/Src/aio.c:31:11:aio_output_get	16	static
 ../Core/Src/aio.c:41:10:aio_input_get	16	static
 ../Core/Src/aio.c:50:9:aio_get_input_count	4	static
-../Core/Src/aio.c:60:9:aio_get_output_count	4	static
+../Core/Src/aio.c:59:9:aio_get_output_count	4	static

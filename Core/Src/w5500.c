@@ -13,11 +13,19 @@ static uint8_t dhcp_state = 0;
 static uint32_t dhcp_tick = 0;
 
 static ip_mode_t ip_mode = IP_MODE_STATIC;
-static uint8_t static_ip[4]      = {192, 168, 10, 18};
-static uint8_t static_gateway[4] = {192, 168, 10,  1};
+static uint8_t static_ip[4]      = {192, 168, 1, 100};
+static uint8_t static_gateway[4] = {192, 168, 1,  1};
 static uint8_t static_subnet[4]  = {255, 255, 255,  0};
 
 void w5500_set_ip_mode(ip_mode_t mode) { ip_mode = mode; }
+
+void w5500_set_network_config(const uint8_t *ip, const uint8_t *gateway,
+                              const uint8_t *subnet)
+{
+    memcpy(static_ip, ip, 4);
+    memcpy(static_gateway, gateway, 4);
+    memcpy(static_subnet, subnet, 4);
+}
 
 void w5500_init(void) {
     HAL_GPIO_WritePin(RESET_PORT, RESET_PIN, GPIO_PIN_RESET);
@@ -50,18 +58,20 @@ void w5500_init(void) {
         w5500_dhcp_init();
     }
 
-    // Open app sockets 0-3 as TCP listeners on 4242
-    for (uint8_t s = W5500_APP_SOCKET_START; s < W5500_APP_SOCKET_START + W5500_APP_SOCKET_COUNT; s++) {
+    // Open BNS protocol sockets 0-1 as TCP listeners
+    for (uint8_t s = W5500_BNS_SOCKET_START; s < W5500_BNS_SOCKET_START + W5500_BNS_SOCKET_COUNT; s++) {
         w5500_socket_write_byte(s, SN_CR, SN_CR_CLOSE);
         while (w5500_socket_read_byte(s, SN_CR));
         w5500_socket_write_byte(s, SN_MR, SN_MR_TCP);
-        w5500_socket_write_byte(s, SN_PORT, W5500_APP_PORT >> 8);
-        w5500_socket_write_byte(s, SN_PORT + 1, W5500_APP_PORT & 0xFF);
+        w5500_socket_write_byte(s, SN_PORT, W5500_BNS_PORT >> 8);
+        w5500_socket_write_byte(s, SN_PORT + 1, W5500_BNS_PORT & 0xFF);
         w5500_socket_write_byte(s, SN_CR, SN_CR_OPEN);
         while (w5500_socket_read_byte(s, SN_CR));
         w5500_socket_write_byte(s, SN_CR, SN_CR_LISTEN);
         while (w5500_socket_read_byte(s, SN_CR));
     }
+    // HTTP sockets 2-3 are opened by webserver_init()
+    // Modbus (4), MQTT (5) opened by their respective modules
 
 }
 

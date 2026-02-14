@@ -4,15 +4,13 @@
 #include <stdbool.h>
 #include "board_id.h"
 
-#define AIO_INPUT_COUNT_BABY  0
-#define AIO_INPUT_COUNT_MAMA 12
-#define AIO_INPUT_COUNT_PAPA 32
-#define AIO_INPUT_COUNT_MAX	 32
+#define AIO_INPUT_COUNT_BABY   0
+#define AIO_INPUT_COUNT_MAMA   4
+#define AIO_INPUT_COUNT_MAX    4
 
 #define AIO_OUTPUT_COUNT_BABY  0
-#define AIO_OUTPUT_COUNT_MAMA  8
-#define AIO_OUTPUT_COUNT_PAPA 16
-#define AIO_OUTPUT_COUNT_MAX  16
+#define AIO_OUTPUT_COUNT_MAMA  2
+#define AIO_OUTPUT_COUNT_MAX   2
 
 void aio_init(board_type_t type);
 

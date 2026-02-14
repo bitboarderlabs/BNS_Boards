@@ -16,8 +16,8 @@ static uint8_t outputBankCurVal[3] = {0,0,0};
     static GPIO_TypeDef* const baby_in_port[4] = { GPIOE, GPIOE, GPIOC, GPIOC };
 #endif
 
-/* ---------- Mama / Papa – 8-bit parallel bus ---------- */
-#if defined(BOARD_MAMA) || defined(BOARD_PAPA)
+/* ---------- Mama – 8-bit parallel bus ---------- */
+#if defined(BOARD_MAMA)
     #define IOBUS_DATA_PORT GPIOD
     #define IOBUS_DATA_PINS (GPIO_PIN_7|GPIO_PIN_6|GPIO_PIN_5|GPIO_PIN_4|\
                              GPIO_PIN_3|GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_0)
@@ -173,7 +173,7 @@ void dio_init(board_type_t type)
         HAL_GPIO_Init(baby_in_port[i], &GPIO_InitStruct);
     }
 
-#elif defined(BOARD_MAMA) || defined(BOARD_PAPA)
+#elif defined(BOARD_MAMA)
     __HAL_RCC_GPIOD_CLK_ENABLE();
     __HAL_RCC_GPIOE_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -221,9 +221,8 @@ void dio_output_set(uint8_t idx, bool on)
     }
 #endif
 
-#if defined(BOARD_MAMA) || defined(BOARD_PAPA)
-    uint8_t max = (board == BOARD_TYPE_MAMA) ? 8 : 16;
-    if (idx >= max) return;
+#if defined(BOARD_MAMA)
+    if (idx >= 8) return;
 
     uint8_t addr = idx / 8;
     uint8_t bit  = idx % 8;
@@ -258,9 +257,8 @@ bool dio_output_get(uint8_t idx)
     }
 #endif
 
-#if defined(BOARD_MAMA) || defined(BOARD_PAPA)
-    uint8_t max = (board == BOARD_TYPE_MAMA) ? 8 : 16;
-    if (idx >= max) return false;
+#if defined(BOARD_MAMA)
+    if (idx >= 8) return false;
 
     uint8_t addr = idx / 8;
     uint8_t bit  = idx % 8;
@@ -275,7 +273,7 @@ bool dio_output_get(uint8_t idx)
 /* ---------------------------------------------------------------------- */
 void dio_output_enable(bool enable)
 {
-#if defined(BOARD_MAMA) || defined(BOARD_PAPA)
+#if defined(BOARD_MAMA)
     HAL_GPIO_WritePin(DIG_OUTPUT_ENABLE_PORT, DIG_OUTPUT_ENABLE_PIN,
                       enable ? GPIO_PIN_RESET : GPIO_PIN_SET);
 #else
@@ -295,23 +293,18 @@ bool dio_input_get(uint8_t idx)
     }
 #endif
 
-#if defined(BOARD_MAMA) || defined(BOARD_PAPA)
-    uint8_t max = (board == BOARD_TYPE_MAMA) ? 12 : 32;
-    if (idx >= max) return false;
+#if defined(BOARD_MAMA)
+    if (idx >= 12) return false;
 
     uint8_t addr;
     uint8_t bit = idx % 8;
 
-    if (board == BOARD_TYPE_MAMA) {
-        if (idx <= 7) {
-            addr = 0x03;
-        } else {
-            addr = 0x04;
-            bit = idx - 8;
-            if (bit >= 4) return false;
-        }
+    if (idx <= 7) {
+        addr = 0x03;
     } else {
-        addr = 0x03 + (idx / 8);
+        addr = 0x04;
+        bit = idx - 8;
+        if (bit >= 4) return false;
     }
 
     return (iobus_read(addr) & (1 << bit)) != 0;
@@ -327,7 +320,6 @@ uint8_t dio_get_input_count(void) {
     switch (board) {
         case BOARD_TYPE_BABY: return DIO_INPUT_COUNT_BABY;
         case BOARD_TYPE_MAMA: return DIO_INPUT_COUNT_MAMA;
-        case BOARD_TYPE_PAPA: return DIO_INPUT_COUNT_PAPA;
         default: return 0;
     }
 }
@@ -337,7 +329,6 @@ uint8_t dio_get_output_count(void) {
     switch (board) {
         case BOARD_TYPE_BABY: return DIO_OUTPUT_COUNT_BABY;
         case BOARD_TYPE_MAMA: return DIO_OUTPUT_COUNT_MAMA;
-        case BOARD_TYPE_PAPA: return DIO_OUTPUT_COUNT_PAPA;
         default: return 0;
     }
 }

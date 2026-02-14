@@ -51,7 +51,6 @@ uint8_t aio_get_input_count(void) {
     switch (board) {
         case BOARD_TYPE_BABY: return AIO_INPUT_COUNT_BABY;
         case BOARD_TYPE_MAMA: return AIO_INPUT_COUNT_MAMA;
-        case BOARD_TYPE_PAPA: return AIO_INPUT_COUNT_PAPA;
         default: return 0;
     }
 }
@@ -61,7 +60,6 @@ uint8_t aio_get_output_count(void) {
     switch (board) {
         case BOARD_TYPE_BABY: return AIO_OUTPUT_COUNT_BABY;
         case BOARD_TYPE_MAMA: return AIO_OUTPUT_COUNT_MAMA;
-        case BOARD_TYPE_PAPA: return AIO_OUTPUT_COUNT_PAPA;
         default: return 0;
     }
 }

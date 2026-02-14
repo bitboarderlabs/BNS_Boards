@@ -15,6 +15,7 @@ RM := rm -rf
 -include Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/subdir.mk
 -include Drivers/STM32F4xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
+-include Displays/ST7735_Canvas/subdir.mk
 -include Core/Src/subdir.mk
 -include objects.mk
 
@@ -64,8 +65,8 @@ all: main-build
 main-build: BNS_200_07.elf secondary-outputs
 
 # Tool invocations
-BNS_200_07.elf BNS_200_07.map: $(OBJS) $(USER_OBJS) C:\Users\alex\STM32CubeIDE\BNS_Boards\BNS_200_07\STM32F427VITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "BNS_200_07.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\alex\STM32CubeIDE\BNS_Boards\BNS_200_07\STM32F427VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BNS_200_07.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+BNS_200_07.elf BNS_200_07.map: $(OBJS) $(USER_OBJS) ../STM32F427VITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "BNS_200_07.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"../STM32F427VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BNS_200_07.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

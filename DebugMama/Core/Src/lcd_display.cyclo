@@ -1,0 +1,6 @@
+../Core/Src/lcd_display.c:58:13:lcd_backlight_on	1
+../Core/Src/lcd_display.c:64:13:lcd_backlight_off	1
+../Core/Src/lcd_display.c:70:13:lcd_print_at	1
+../Core/Src/lcd_display.c:77:6:lcd_init	2
+../Core/Src/lcd_display.c:106:13:lcd_redraw	7
+../Core/Src/lcd_display.c:185:6:lcd_task	5

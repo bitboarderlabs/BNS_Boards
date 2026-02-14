@@ -12,11 +12,22 @@ extern SPI_HandleTypeDef hspi1;
 #define RESET_PORT     GPIOE
 #define RESET_PIN      GPIO_PIN_3
 
-/* ---- sockets ---- */
-#define W5500_APP_PORT          4242
-#define W5500_DHCP_SOCKET       4
-#define W5500_APP_SOCKET_START  0   // Sockets 0-3 for 4 app TCP
-#define W5500_APP_SOCKET_COUNT  4
+/* ---- sockets (per spec §2.3) ---- */
+#define W5500_BNS_PORT           4242
+#define W5500_BNS_SOCKET_START   0   /* Sockets 0-1: BNS protocol TCP */
+#define W5500_BNS_SOCKET_COUNT   2
+#define W5500_HTTP_SOCKET_START  2   /* Sockets 2-3: HTTP web server */
+#define W5500_HTTP_SOCKET_COUNT  2
+#define W5500_HTTP_PORT          80
+#define W5500_MODBUS_SOCKET      4   /* Future: Modbus TCP port 502 */
+#define W5500_MQTT_SOCKET        5   /* Future: MQTT port 1883 */
+#define W5500_DHCP_SOCKET        6
+#define W5500_RESERVED_SOCKET    7
+
+/* Legacy aliases for comm.c compatibility */
+#define W5500_APP_PORT          W5500_BNS_PORT
+#define W5500_APP_SOCKET_START  W5500_BNS_SOCKET_START
+#define W5500_APP_SOCKET_COUNT  W5500_BNS_SOCKET_COUNT
 
 /* ---- IP mode ---- */
 typedef enum { IP_MODE_STATIC = 0, IP_MODE_DHCP } ip_mode_t;
@@ -134,6 +145,8 @@ static inline void w5500_socket_read(uint8_t socket, uint16_t offset, uint8_t *d
 
 /* ---- public API ---- */
 void w5500_set_ip_mode(ip_mode_t mode);
+void w5500_set_network_config(const uint8_t *ip, const uint8_t *gateway,
+                              const uint8_t *subnet);
 void w5500_init(void);
 bool w5500_is_connected(uint8_t socket);
 uint16_t w5500_get_rx_size(uint8_t socket);

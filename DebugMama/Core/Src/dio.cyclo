@@ -3,10 +3,10 @@
 ../Core/Src/dio.c:64:17:iobus_write	2
 ../Core/Src/dio.c:116:20:iobus_read	9
 ../Core/Src/dio.c:148:6:dio_init	1
-../Core/Src/dio.c:214:6:dio_output_set	4
-../Core/Src/dio.c:245:6:dio_all_outputs_off	2
-../Core/Src/dio.c:252:6:dio_output_get	3
-../Core/Src/dio.c:276:6:dio_output_enable	1
-../Core/Src/dio.c:289:6:dio_input_get	6
-../Core/Src/dio.c:326:9:dio_get_input_count	5
-../Core/Src/dio.c:336:9:dio_get_output_count	5
+../Core/Src/dio.c:214:6:dio_output_set	3
+../Core/Src/dio.c:244:6:dio_all_outputs_off	2
+../Core/Src/dio.c:251:6:dio_output_get	2
+../Core/Src/dio.c:274:6:dio_output_enable	1
+../Core/Src/dio.c:287:6:dio_input_get	4
+../Core/Src/dio.c:319:9:dio_get_input_count	3
+../Core/Src/dio.c:328:9:dio_get_output_count	3

@@ -30,7 +30,11 @@
 #include "w5500.h"
 #include "comm.h"
 #include "app.h"
-//#include "app.h"
+#include "user_config.h"
+#include "webserver.h"
+#if defined(BOARD_MAMA)
+#include "lcd_display.h"
+#endif
 
 /* USER CODE END Includes */
 
@@ -238,24 +242,33 @@ int newMain(void){
 	  node_id  = node_id_get();
 
 	  dio_init(board);
-	  uint8_t numOp = (board == BOARD_TYPE_MAMA) ? DIO_OUTPUT_COUNT_MAMA :
-	          (board == BOARD_TYPE_PAPA) ? DIO_OUTPUT_COUNT_PAPA :
-	                                       DIO_OUTPUT_COUNT_BABY;
 
 	  dio_all_outputs_off();
-	  dio_output_enable(true);          // safe for Baby, required for Mama/Papa
+	  dio_output_enable(true);          // safe for Baby, required for Mama
 
 	  aio_init(board);
 
 	  status_led_init(board);
-	  //status_led_set(STATUS_BOOT);
 	  status_led_set_mode(LED_MODE_BOOTING);
 
-	  // USER CONFIG: DHCP or STATIC
-	  //w5500_set_ip_mode(1); //0=Static IP, 1=DHCP.  To change during runtime, call w5500_set_ip_mode(IP_MODE_STATIC);
+	  /* Load user configuration from flash (or defaults) */
+	  config_init(board);
+	  user_config_data_t *cfg = config_get();
+
+	  /* Apply config-driven network settings before comm init */
+	  w5500_set_ip_mode(cfg->ip_mode ? IP_MODE_DHCP : IP_MODE_STATIC);
+	  w5500_set_network_config(cfg->static_ip, cfg->gateway, cfg->subnet);
 
 	  comm_init(node_id);
 	  app_init();
+
+	  /* Initialize web server (opens HTTP sockets 2-3) */
+	  webserver_init();
+
+#if defined(BOARD_MAMA)
+	  /* Initialize LCD display if enabled */
+	  lcd_init();
+#endif
 
 	  //status_led_set(STATUS_APP_RUNNING);
 
@@ -286,7 +299,10 @@ int newMain(void){
 
 	  	  comm_task();
 	  	  app_task();
-	  	  //HAL_Delay(1);   /* debounce + low CPU load */
+	  	  webserver_task();
+#if defined(BOARD_MAMA)
+	  	  lcd_task();
+#endif
 
 
 

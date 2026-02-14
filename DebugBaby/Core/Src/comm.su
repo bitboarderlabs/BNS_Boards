@@ -1,9 +1,9 @@
-../Core/Inc/w5500.h:66:20:_w5500_select	8	static
-../Core/Inc/w5500.h:67:20:_w5500_deselect	8	static
-../Core/Inc/w5500.h:69:20:w5500_write	32	static
-../Core/Inc/w5500.h:77:20:w5500_read_raw	32	static
-../Core/Inc/w5500.h:113:23:w5500_socket_read_byte	24	static
-../Core/Inc/w5500.h:120:20:w5500_socket_write_byte	24	static
+../Core/Inc/w5500.h:77:20:_w5500_select	8	static
+../Core/Inc/w5500.h:78:20:_w5500_deselect	8	static
+../Core/Inc/w5500.h:80:20:w5500_write	32	static
+../Core/Inc/w5500.h:88:20:w5500_read_raw	32	static
+../Core/Inc/w5500.h:124:23:w5500_socket_read_byte	24	static
+../Core/Inc/w5500.h:131:20:w5500_socket_write_byte	24	static
 ../Core/Src/comm.c:62:6:check_stack_canary	16	static
 ../Core/Src/comm.c:77:13:circ_init	16	static
 ../Core/Src/comm.c:81:13:circ_push	16	static

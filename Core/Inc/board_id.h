@@ -30,18 +30,8 @@ typedef enum {
     #define BOARDID2_PIN  GPIO_PIN_8
     #define BOARDID3_PORT GPIOB
     #define BOARDID3_PIN  GPIO_PIN_9
-#elif defined(BOARD_PAPA)
-	#define HSE_FREQ_MHZ  16
-	#define BOARDID0_PORT GPIOA
-    #define BOARDID0_PIN  GPIO_PIN_8
-    #define BOARDID1_PORT GPIOC
-    #define BOARDID1_PIN  GPIO_PIN_12
-    #define BOARDID2_PORT GPIOB
-    #define BOARDID2_PIN  GPIO_PIN_8
-    #define BOARDID3_PORT GPIOB
-    #define BOARDID3_PIN  GPIO_PIN_9
 #else
-    #error "Define BOARD_BABY, BOARD_MAMA or BOARD_PAPA in the project preprocessor"
+    #error "Define BOARD_BABY or BOARD_MAMA in the project preprocessor"
 #endif
 
 board_type_t board_get_type(void);

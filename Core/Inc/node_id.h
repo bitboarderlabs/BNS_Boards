@@ -12,7 +12,7 @@
     #define NODEID8_MOD_PORT  GPIOB
     #define NODEID8_MOD_PIN   GPIO_PIN_9
 
-#elif defined(BOARD_MAMA) || defined(BOARD_PAPA)
+#elif defined(BOARD_MAMA)
     #define NODEID1_MOD_PORT  GPIOE
     #define NODEID1_MOD_PIN   GPIO_PIN_6
     #define NODEID2_MOD_PORT  GPIOE
@@ -23,7 +23,7 @@
     #define NODEID8_MOD_PIN   GPIO_PIN_13
 
 #else
-    #error "Board type not defined. Use BOARD_BABY, BOARD_MAMA, or BOARD_PAPA"
+    #error "Board type not defined. Use BOARD_BABY or BOARD_MAMA"
 #endif
 
 /**

@@ -1,8 +1,8 @@
 ../Core/Src/dio.c:148:6:dio_init	56	static
 ../Core/Src/dio.c:214:6:dio_output_set	16	static
-../Core/Src/dio.c:245:6:dio_all_outputs_off	16	static
-../Core/Src/dio.c:252:6:dio_output_get	16	static
-../Core/Src/dio.c:276:6:dio_output_enable	16	static
-../Core/Src/dio.c:289:6:dio_input_get	16	static
-../Core/Src/dio.c:326:9:dio_get_input_count	4	static
-../Core/Src/dio.c:336:9:dio_get_output_count	4	static
+../Core/Src/dio.c:244:6:dio_all_outputs_off	16	static
+../Core/Src/dio.c:251:6:dio_output_get	16	static
+../Core/Src/dio.c:274:6:dio_output_enable	16	static
+../Core/Src/dio.c:287:6:dio_input_get	16	static
+../Core/Src/dio.c:319:9:dio_get_input_count	4	static
+../Core/Src/dio.c:328:9:dio_get_output_count	4	static

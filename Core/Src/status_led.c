@@ -166,11 +166,7 @@ static const board_config_t board_configs[] = {
         .led1 = { .port = GPIOA, .pin = GPIO_PIN_2, .active_high = true }
         // no led2
     },
-    [BOARD_TYPE_PAPA] = {
-        .num_leds = 2,
-        .led1 = { .port = GPIOA, .pin = GPIO_PIN_2, .active_high = false },
-        .led2 = { .port = GPIOA, .pin = GPIO_PIN_3, .active_high = false }
-    }
+    [BOARD_TYPE_PAPA] = { .num_leds = 0 } /* Papa cancelled — reserved */
 };
 
 // ---------------------------------------------------------------------------
