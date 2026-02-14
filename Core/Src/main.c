@@ -33,6 +33,7 @@
 #include "user_config.h"
 #include "webserver.h"
 #include "modbus_tcp.h"
+#include "mqtt_client.h"
 #if defined(BOARD_MAMA)
 #include "lcd_display.h"
 #endif
@@ -269,6 +270,9 @@ int newMain(void){
 	  /* Initialize Modbus TCP server (socket 4, port 502) */
 	  modbus_tcp_init();
 
+	  /* Initialize MQTT client (socket 5, port 1883) */
+	  mqtt_client_init();
+
 #if defined(BOARD_MAMA)
 	  /* Initialize LCD display if enabled */
 	  lcd_init();
@@ -305,6 +309,7 @@ int newMain(void){
 	  	  app_task();
 	  	  webserver_task();
 	  	  modbus_tcp_task();
+	  	  mqtt_client_task();
 #if defined(BOARD_MAMA)
 	  	  lcd_task();
 #endif

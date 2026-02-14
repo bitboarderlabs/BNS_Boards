@@ -14,6 +14,7 @@ C_SRCS += \
 ../Core/Src/lcd_display.c \
 ../Core/Src/main.c \
 ../Core/Src/modbus_tcp.c \
+../Core/Src/mqtt_client.c \
 ../Core/Src/node_id.c \
 ../Core/Src/packet.c \
 ../Core/Src/status_led.c \
@@ -37,6 +38,7 @@ OBJS += \
 ./Core/Src/lcd_display.o \
 ./Core/Src/main.o \
 ./Core/Src/modbus_tcp.o \
+./Core/Src/mqtt_client.o \
 ./Core/Src/node_id.o \
 ./Core/Src/packet.o \
 ./Core/Src/status_led.o \
@@ -60,6 +62,7 @@ C_DEPS += \
 ./Core/Src/lcd_display.d \
 ./Core/Src/main.d \
 ./Core/Src/modbus_tcp.d \
+./Core/Src/mqtt_client.d \
 ./Core/Src/node_id.d \
 ./Core/Src/packet.d \
 ./Core/Src/status_led.d \
@@ -81,7 +84,7 @@ Core/Src/%.o Core/Src/%.su Core/Src/%.cyclo: ../Core/Src/%.c Core/Src/subdir.mk
 clean: clean-Core-2f-Src
 
 clean-Core-2f-Src:
-	-$(RM) ./Core/Src/aio.cyclo ./Core/Src/aio.d ./Core/Src/aio.o ./Core/Src/aio.su ./Core/Src/app.cyclo ./Core/Src/app.d ./Core/Src/app.o ./Core/Src/app.su ./Core/Src/board_id.cyclo ./Core/Src/board_id.d ./Core/Src/board_id.o ./Core/Src/board_id.su ./Core/Src/bridge.cyclo ./Core/Src/bridge.d ./Core/Src/bridge.o ./Core/Src/bridge.su ./Core/Src/comm.cyclo ./Core/Src/comm.d ./Core/Src/comm.o ./Core/Src/comm.su ./Core/Src/dio.cyclo ./Core/Src/dio.d ./Core/Src/dio.o ./Core/Src/dio.su ./Core/Src/lcd_display.cyclo ./Core/Src/lcd_display.d ./Core/Src/lcd_display.o ./Core/Src/lcd_display.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/modbus_tcp.cyclo ./Core/Src/modbus_tcp.d ./Core/Src/modbus_tcp.o ./Core/Src/modbus_tcp.su ./Core/Src/node_id.cyclo ./Core/Src/node_id.d ./Core/Src/node_id.o ./Core/Src/node_id.su ./Core/Src/packet.cyclo ./Core/Src/packet.d ./Core/Src/packet.o ./Core/Src/packet.su ./Core/Src/status_led.cyclo ./Core/Src/status_led.d ./Core/Src/status_led.o ./Core/Src/status_led.su ./Core/Src/stm32f4xx_hal_msp.cyclo ./Core/Src/stm32f4xx_hal_msp.d ./Core/Src/stm32f4xx_hal_msp.o ./Core/Src/stm32f4xx_hal_msp.su ./Core/Src/stm32f4xx_it.cyclo ./Core/Src/stm32f4xx_it.d ./Core/Src/stm32f4xx_it.o ./Core/Src/stm32f4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32f4xx.cyclo ./Core/Src/system_stm32f4xx.d ./Core/Src/system_stm32f4xx.o ./Core/Src/system_stm32f4xx.su ./Core/Src/user_config.cyclo ./Core/Src/user_config.d ./Core/Src/user_config.o ./Core/Src/user_config.su ./Core/Src/w5500.cyclo ./Core/Src/w5500.d ./Core/Src/w5500.o ./Core/Src/w5500.su ./Core/Src/web_content.cyclo ./Core/Src/web_content.d ./Core/Src/web_content.o ./Core/Src/web_content.su ./Core/Src/webserver.cyclo ./Core/Src/webserver.d ./Core/Src/webserver.o ./Core/Src/webserver.su
+	-$(RM) ./Core/Src/aio.cyclo ./Core/Src/aio.d ./Core/Src/aio.o ./Core/Src/aio.su ./Core/Src/app.cyclo ./Core/Src/app.d ./Core/Src/app.o ./Core/Src/app.su ./Core/Src/board_id.cyclo ./Core/Src/board_id.d ./Core/Src/board_id.o ./Core/Src/board_id.su ./Core/Src/bridge.cyclo ./Core/Src/bridge.d ./Core/Src/bridge.o ./Core/Src/bridge.su ./Core/Src/comm.cyclo ./Core/Src/comm.d ./Core/Src/comm.o ./Core/Src/comm.su ./Core/Src/dio.cyclo ./Core/Src/dio.d ./Core/Src/dio.o ./Core/Src/dio.su ./Core/Src/lcd_display.cyclo ./Core/Src/lcd_display.d ./Core/Src/lcd_display.o ./Core/Src/lcd_display.su ./Core/Src/main.cyclo ./Core/Src/main.d ./Core/Src/main.o ./Core/Src/main.su ./Core/Src/modbus_tcp.cyclo ./Core/Src/modbus_tcp.d ./Core/Src/modbus_tcp.o ./Core/Src/modbus_tcp.su ./Core/Src/mqtt_client.cyclo ./Core/Src/mqtt_client.d ./Core/Src/mqtt_client.o ./Core/Src/mqtt_client.su ./Core/Src/node_id.cyclo ./Core/Src/node_id.d ./Core/Src/node_id.o ./Core/Src/node_id.su ./Core/Src/packet.cyclo ./Core/Src/packet.d ./Core/Src/packet.o ./Core/Src/packet.su ./Core/Src/status_led.cyclo ./Core/Src/status_led.d ./Core/Src/status_led.o ./Core/Src/status_led.su ./Core/Src/stm32f4xx_hal_msp.cyclo ./Core/Src/stm32f4xx_hal_msp.d ./Core/Src/stm32f4xx_hal_msp.o ./Core/Src/stm32f4xx_hal_msp.su ./Core/Src/stm32f4xx_it.cyclo ./Core/Src/stm32f4xx_it.d ./Core/Src/stm32f4xx_it.o ./Core/Src/stm32f4xx_it.su ./Core/Src/syscalls.cyclo ./Core/Src/syscalls.d ./Core/Src/syscalls.o ./Core/Src/syscalls.su ./Core/Src/sysmem.cyclo ./Core/Src/sysmem.d ./Core/Src/sysmem.o ./Core/Src/sysmem.su ./Core/Src/system_stm32f4xx.cyclo ./Core/Src/system_stm32f4xx.d ./Core/Src/system_stm32f4xx.o ./Core/Src/system_stm32f4xx.su ./Core/Src/user_config.cyclo ./Core/Src/user_config.d ./Core/Src/user_config.o ./Core/Src/user_config.su ./Core/Src/w5500.cyclo ./Core/Src/w5500.d ./Core/Src/w5500.o ./Core/Src/w5500.su ./Core/Src/web_content.cyclo ./Core/Src/web_content.d ./Core/Src/web_content.o ./Core/Src/web_content.su ./Core/Src/webserver.cyclo ./Core/Src/webserver.d ./Core/Src/webserver.o ./Core/Src/webserver.su
 
 .PHONY: clean-Core-2f-Src
 

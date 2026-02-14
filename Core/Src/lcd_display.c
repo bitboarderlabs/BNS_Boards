@@ -5,6 +5,7 @@
 #include "node_id.h"
 #include "w5500.h"
 #include "app.h"
+#include "mqtt_client.h"
 #include "main.h"
 #include "ST7735Canvas.h"
 #include <stdio.h>
@@ -172,7 +173,7 @@ static void lcd_redraw(void)
     ST7735_SetTextColor(&lcd_dev, COL_STATUS_FG, COL_BG);
     lcd_print_at(2, 75, "MQTT:");
 
-    bool mqtt_on = cfg->mqtt_enabled;  /* TODO: replace with actual MQTT connected state */
+    bool mqtt_on = mqtt_client_is_connected();
     ST7735_SetTextColor(&lcd_dev, mqtt_on ? COL_MQTT_ON : COL_MQTT_OFF, COL_BG);
     lcd_print_at(32, 75, mqtt_on ? "On" : "Off");
 

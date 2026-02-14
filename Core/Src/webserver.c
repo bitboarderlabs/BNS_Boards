@@ -8,6 +8,7 @@
 #include "app.h"
 #include "board_id.h"
 #include "node_id.h"
+#include "mqtt_client.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -664,12 +665,13 @@ static void http_handle_info_json(http_conn_t *c)
         "\"uptime\":%lu,"
         "\"ip\":\"%d.%d.%d.%d\","
         "\"device_name\":\"%s\","
-        "\"mqtt_connected\":false}",
+        "\"mqtt_connected\":%s}",
         board_name,
         node_id_get(),
         (unsigned long)(HAL_GetTick() / 1000),
         ip[0], ip[1], ip[2], ip[3],
-        cfg->device_name);
+        cfg->device_name,
+        mqtt_client_is_connected() ? "true" : "false");
 
     http_serve_json(c, json_buf, len);
 }
